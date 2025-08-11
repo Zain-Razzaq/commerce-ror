@@ -10,6 +10,8 @@ class Product < ApplicationRecord
   has_many :cart_items, dependent: :destroy
   has_many :carts, through: :cart_items
 
+  has_many_attached :images
+
   validates :name, presence: true, uniqueness: true
   validates :description, presence: true, length: { minimum: 5, maximum: 255 }
   validates :price, presence: true, numericality: { greater_than: 0 }

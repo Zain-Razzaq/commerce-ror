@@ -6,53 +6,17 @@ class ProductsController < ApplicationController
 
   def index
     begin
-      @products = Product.all.select(:id, :name, :price, :description, :is_active, :category_id)
-      render json: @products
+      @products = Product.all
+      render json: @products.map { |product| product_json(product) }, status: :ok
     rescue => e
       is_server_error(e)
     end
   end
 
-  # def index
-  #   begin
-  #     # Sorting
-  #     sort_column = params[:sort].presence_in(%w[name price created_at]) || "created_at"
-  #     sort_order  = params[:order].to_s.downcase == "desc" ? "desc" : "asc"
-  
-  #     # Base query
-  #     products = Product.select(:id, :name, :price, :description, :is_active, :category_id)
-  
-  #     # Filtering
-  #     products = products.where(category_id: params[:category_id]) if params[:category_id].present?
-  #     products = products.where(is_active: ActiveModel::Type::Boolean.new.cast(params[:is_active])) if params[:is_active].present?
-  
-  #     # Apply sorting
-  #     products = products.order("#{sort_column} #{sort_order}")
-  
-  #     # Apply Kaminari pagination
-  #     products = products.page(params[:page]).per(params[:per_page] || 10)
-  
-  #     render json: {
-  #       products: products,
-  #       meta: {
-  #         current_page: products.current_page,
-  #         per_page: products.limit_value,
-  #         total_count: products.total_count,
-  #         total_pages: products.total_pages,
-  #         sort: sort_column,
-  #         order: sort_order
-  #       }
-  #     }
-  #   rescue => e
-  #     is_server_error(e)
-  #   end
-  # end
-  
-
   def show
     begin
       if @product
-        render json: @product.slice(:id, :name, :description, :price, :stock, :is_active)
+        render json: product_json(@product).merge(category_name: @product.category.name), status: :ok
       else
         render json: { error: "Product not found" }, status: :not_found
       end
@@ -61,11 +25,51 @@ class ProductsController < ApplicationController
     end
   end
 
+  def search
+    begin
+      @products = Product.all
+      if params[:name].present?
+        @products = @products.where("LOWER(name) LIKE ?", "%#{params[:name].downcase}%")
+      end
+
+      @products = @products.where(price: params[:min_price]..params[:max_price]) if params[:min_price].present? && params[:max_price].present?
+      @products = @products.where(price: ..params[:max_price]) if params[:max_price].present? && params[:min_price].blank?
+      @products = @products.where(price: params[:min_price]..) if params[:min_price].present? && params[:max_price].blank?
+    
+  
+      # Filter by category
+      if params[:category_id].present?
+        @products = @products.where(category_id: params[:category_id])
+      end
+  
+      # Pagination
+      per_page = (params[:per_page] || 10).to_i
+      @products = @products.page(params[:page]).per(per_page)
+  
+      render json: {
+        products: @products.map { |product| product_json(product) },
+        meta: {
+          current_page: @products.current_page,
+          total_pages: @products.total_pages,
+          total_count: @products.total_count
+        }
+      }, status: :ok
+  
+    rescue => e
+      is_server_error(e)
+    end
+  end
+  
   def create
     begin
-      product = Product.new(product_params)
+      product = Product.new(product_params.except(:images))
       if product.save
-        render json: product, status: :created
+        if params[:images].present?
+          params[:images].each do |image|
+            product.images.attach(image)
+          end
+        end
+        render json: product_json(product), status: :created
       else
         render json: { error: product.errors.full_messages.to_sentence }, status: :unprocessable_entity
       end
@@ -77,7 +81,7 @@ class ProductsController < ApplicationController
   def update
     begin
       if @product.update(product_params)
-        render json: @product, status: :ok
+        render json: product_json(@product), status: :ok
       else
         render json: { error: @product.errors.full_messages.to_sentence }, status: :unprocessable_entity
       end
@@ -88,6 +92,7 @@ class ProductsController < ApplicationController
 
   def destroy
     begin
+      @product.images.purge
       @product.destroy
       render json: { message: "Product deleted successfully" }, status: :ok
     rescue => e
@@ -98,7 +103,7 @@ class ProductsController < ApplicationController
   private
 
   def product_params
-    params.permit(:name, :description, :price, :stock, :category_id, :is_active)
+    params.permit(:name, :description, :price, :stock, :category_id, :is_active, images: [])
   end
 
   def set_product
@@ -110,5 +115,17 @@ class ProductsController < ApplicationController
     end
   end
 
+  def product_json(product)
+    {
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      stock: product.stock,
+      is_active: product.is_active,
+      category_id: product.category_id,
+      images: product.images.map { |img| url_for(img) }
+    }
+  end
   
 end
