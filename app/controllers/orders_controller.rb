@@ -1,6 +1,8 @@
 class OrdersController < ApplicationController
   skip_before_action :verify_authenticity_token
 
+  before_action :require_admin, only: [:index, :update, :destroy]
+
   def index
     begin
       @orders = Order.all.includes(:order_items)

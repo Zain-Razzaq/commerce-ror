@@ -2,7 +2,7 @@ class CategoriesController < ApplicationController
   skip_before_action :verify_authenticity_token
 
   before_action :set_category, only: [ :update, :destroy]
-  # before_action :require_admin, only: [:create, :update, :destroy]
+  before_action :require_admin, only: [:create, :update, :destroy]
 
   def index
     begin
@@ -12,18 +12,6 @@ class CategoriesController < ApplicationController
       is_server_error(e)
     end
   end
-
-  # def show
-  #   begin
-  #     if @category
-  #       render json: @category.slice(:id, :name)
-  #     else
-  #       render json: { error: "Category not found" }, status: :not_found
-  #     end
-  #   rescue => e
-  #     is_server_error(e)
-  #   end
-  # end
 
   def create
     begin

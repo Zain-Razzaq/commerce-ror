@@ -2,7 +2,7 @@ class ProductsController < ApplicationController
   skip_before_action :verify_authenticity_token
 
   before_action :set_product, only: [:show, :update, :destroy]
-  # before_action :require_admin, only: [:create, :update, :destroy]
+  before_action :require_admin, only: [:create, :update, :destroy]
 
   def index
     begin
