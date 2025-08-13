@@ -27,12 +27,14 @@ class OrdersController < ApplicationController
 
   def create
     begin
-      @order = current_user.orders.create(order_params)
-      params[:products].each do |product|
-        @order.order_items.create(product_id: product[:product_id], quantity: product[:quantity], price: Product.find(product[:product_id]).price)
+      Order.transaction do
+        @order = current_user.orders.create!(order_params)
+        params[:products].each do |product|
+          @order.order_items.create(product_id: product[:product_id], quantity: product[:quantity], price: Product.find(product[:product_id]).price)
+        end
+        current_user.cart.cart_items.destroy_all
+        render json: @order
       end
-      current_user.cart.cart_items.destroy_all
-      render json: @order
     rescue => e
       is_server_error(e)
     end
@@ -42,7 +44,6 @@ class OrdersController < ApplicationController
     begin
       Order.transaction do
         @order = Order.find(params[:id])
-  
         @order.order_items.each do |item|
           if item.product.stock >= item.quantity
             item.product.update!(stock: item.product.stock - item.quantity)
@@ -65,8 +66,8 @@ class OrdersController < ApplicationController
 
   def destroy
     begin
-      @order = current_user.orders.find(params[:id])
-      @order.destroy
+      Order.find(params[:id]).destroy
+      render json: { message: "Order deleted successfully" }, status: :ok
     rescue => e
       is_server_error(e)
     end

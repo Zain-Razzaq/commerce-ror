@@ -10,13 +10,9 @@ class ApplicationController < ActionController::Base
   def user_logged_in?
     current_user.present?
   end
-  
-  def is_admin?
-    current_user.is_admin? if current_user
-  end
 
   def require_admin
-    unless is_admin?
+    unless current_user&.is_admin
       render json: { error: "You are not authorized for this action" }, status: :unauthorized
       return
     end
