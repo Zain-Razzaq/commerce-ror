@@ -4,6 +4,7 @@ class User < ApplicationRecord
   scope :admin, -> { where(is_admin: true) }
   
   has_many :orders, dependent: :destroy
+  has_many :order_items, through: :orders, dependent: :destroy
   has_one :cart, dependent: :destroy
   has_many :cart_items, through: :cart, dependent: :destroy
 
