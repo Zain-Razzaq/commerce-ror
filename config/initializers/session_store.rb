@@ -1,4 +1,4 @@
 Rails.application.config.session_store :cookie_store, 
   key: 'session_token', 
-  same_site: :none, 
+  same_site: :lax, 
   secure: false

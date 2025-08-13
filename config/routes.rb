@@ -3,6 +3,7 @@ Rails.application.routes.draw do
   resources :products, except: [:new, :edit] do
     collection do
       get '/search', to: 'products#search'
+      post '/by-ids', to: 'products#by_ids'
     end
   end
   
@@ -13,4 +14,7 @@ Rails.application.routes.draw do
   post "/login", to: "sessions#create"
   delete "/logout", to: "sessions#destroy"
   post "/signup", to: "users#create"
+
+  resource :cart, only: [:show, :update]
+  resources :cart_items, only: [:create, :update, :destroy]
 end

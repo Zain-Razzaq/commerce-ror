@@ -25,4 +25,17 @@ class ApplicationController < ActionController::Base
   def is_server_error(e)
     render json: { error: e.message }, status: :internal_server_error
   end
+
+  def product_json(product)
+    {
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      stock: product.stock,
+      is_active: product.is_active,
+      category_id: product.category_id,
+      images: product.images.map { |img| url_for(img) }
+    }
+  end
 end

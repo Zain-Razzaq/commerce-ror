@@ -7,7 +7,15 @@ class ProductsController < ApplicationController
   def index
     begin
       @products = Product.all
-      render json: @products.map { |product| product_json(product) }, status: :ok
+      per_page = (params[:per_page] || 4).to_i
+      @products = @products.page(params[:page]).per(per_page)
+      render json: {
+        products: @products.map { |product| product_json(product) },
+        pagination: {
+          current_page: @products.current_page,
+          total_pages: @products.total_pages
+        }
+      }, status: :ok
     rescue => e
       is_server_error(e)
     end
@@ -43,15 +51,14 @@ class ProductsController < ApplicationController
       end
   
       # Pagination
-      per_page = (params[:per_page] || 10).to_i
+      per_page = (params[:per_page] || 4).to_i
       @products = @products.page(params[:page]).per(per_page)
   
       render json: {
         products: @products.map { |product| product_json(product) },
-        meta: {
+        pagination: {
           current_page: @products.current_page,
-          total_pages: @products.total_pages,
-          total_count: @products.total_count
+          total_pages: @products.total_pages
         }
       }, status: :ok
   
@@ -80,7 +87,9 @@ class ProductsController < ApplicationController
 
   def update
     begin
-      if @product.update(product_params)
+      handle_image_updates
+
+      if @product.update(product_params.except(:images, :existing_images))
         render json: product_json(@product), status: :ok
       else
         render json: { error: @product.errors.full_messages.to_sentence }, status: :unprocessable_entity
@@ -100,10 +109,19 @@ class ProductsController < ApplicationController
     end
   end
 
+  def by_ids
+    begin
+      @products = Product.where(id: params[:ids])
+      render json: @products.map { |product| product_json(product) }, status: :ok
+    rescue => e
+      is_server_error(e)
+    end
+  end
+
   private
 
   def product_params
-    params.permit(:name, :description, :price, :stock, :category_id, :is_active, images: [])
+    params.permit(:name, :description, :price, :stock, :category_id, :is_active, images: [], existing_images: [])
   end
 
   def set_product
@@ -115,17 +133,23 @@ class ProductsController < ApplicationController
     end
   end
 
-  def product_json(product)
-    {
-      id: product.id,
-      name: product.name,
-      description: product.description,
-      price: product.price,
-      stock: product.stock,
-      is_active: product.is_active,
-      category_id: product.category_id,
-      images: product.images.map { |img| url_for(img) }
-    }
+  def handle_image_updates
+    existing_image_urls = params[:existing_images] || []
+    
+    current_image_urls = @product.images.map { |img| url_for(img) }
+    
+    images_to_delete = @product.images.select do |img|
+      current_url = url_for(img)
+      !existing_image_urls.include?(current_url)
+    end
+    
+    images_to_delete.each { |img| img.purge }
+    
+    if params[:images].present?
+      params[:images].each do |image|
+        @product.images.attach(image)
+      end
+    end
   end
   
 end
